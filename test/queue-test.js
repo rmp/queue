@@ -336,16 +336,85 @@ suite.addBatch({
         {active: 1, index: 9}
       ]);
     }
+  },
+
+  "aborts a queue of asynchronous tasks": {
+    topic: function() {
+      var shortTask = abortableTask(50),
+          longTask = abortableTask(5000),
+          callback = this.callback;
+
+      var q = queue()
+          .defer(shortTask)
+          .defer(longTask)
+          .defer(shortTask)
+          .defer(longTask)
+          .defer(shortTask)
+          .defer(longTask)
+          .defer(shortTask)
+          .defer(longTask)
+          .defer(shortTask)
+          .defer(longTask)
+          .awaitAll(function(error, results) {
+            callback(error, results, shortTask.aborted(), longTask.aborted());
+          });
+
+      setTimeout(function() {
+        q.abort();
+      }, 250);
+    },
+    "fails": function(error, results) {
+      assert.equal(error.message, "cancelled");
+      assert.isUndefined(results);
+    },
+    "aborts active tasks": function(error, results, n1, n2) {
+      assert.equal(n1, 0);
+      assert.equal(n2, 5);
+    }
+  },
+
+  "does not abort tasks that have not yet started": {
+    topic: function() {
+      var shortTask = abortableTask(50),
+          longTask = abortableTask(5000),
+          callback = this.callback;
+
+      var q = queue(2) // enough for two short tasks to run
+          .defer(shortTask)
+          .defer(longTask)
+          .defer(shortTask)
+          .defer(longTask)
+          .defer(shortTask)
+          .defer(longTask)
+          .defer(shortTask)
+          .defer(longTask)
+          .defer(shortTask)
+          .defer(longTask)
+          .awaitAll(function(error, results) {
+            callback(error, results, shortTask.aborted(), longTask.aborted());
+          });
+
+      setTimeout(function() {
+        q.abort();
+      }, 250);
+    },
+    "fails": function(error, results) {
+      assert.equal(error.message, "cancelled");
+      assert.isUndefined(results);
+    },
+    "aborts active tasks": function(error, results, n1, n2) {
+      assert.equal(n1, 0);
+      assert.equal(n2, 2);
+    }
   }
 
 });
 
 suite.export(module);
 
-function asynchronousTask(counter) {
-  var active = 0;
-
-  if (!counter) counter = {scheduled: 0};
+function asynchronousTask() {
+  var active = 0,
+      counter = {scheduled: 0};
 
   return function(callback) {
     var index = counter.scheduled++;
@@ -360,10 +429,9 @@ function asynchronousTask(counter) {
   };
 }
 
-function synchronousTask(counter) {
-  var active = 0;
-
-  if (!counter) counter = {scheduled: 0};
+function synchronousTask() {
+  var active = 0,
+      counter = {scheduled: 0};
 
   return function(callback) {
     try {
@@ -374,10 +442,10 @@ function synchronousTask(counter) {
   };
 }
 
-function deferredSynchronousTask(counter) {
-  var active = 0, deferrals = [];
-
-  if (!counter) counter = {scheduled: 0};
+function deferredSynchronousTask() {
+  var active = 0,
+      deferrals = [],
+      counter = {scheduled: 0};
 
   function task(callback) {
     if (deferrals) return deferrals.push({callback: callback, index: counter.scheduled++});
@@ -398,6 +466,38 @@ function deferredSynchronousTask(counter) {
         --active;
       }
     });
+  };
+
+  return task;
+}
+
+function abortableTask(delay) {
+  var active = 0,
+      counter = {scheduled: 0, aborted: 0};
+
+  function task(callback) {
+    var index = counter.scheduled++;
+    ++active;
+    var timeout = setTimeout(function() {
+      timeout = null;
+      try {
+        callback(null, {active: active, index: index});
+      } finally {
+        --active;
+      }
+    }, delay);
+    return {
+      abort: function() {
+        if (timeout) {
+          timeout = clearTimeout(timeout);
+          ++counter.aborted;
+        }
+      }
+    };
+  }
+
+  task.aborted = function() {
+    return counter.aborted;
   };
 
   return task;
