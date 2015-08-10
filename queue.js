@@ -67,6 +67,9 @@
         all = true;
         if (!remaining) notify();
         return q;
+      },
+      remaining: function () {
+        return remaining;
       }
     };
   }
