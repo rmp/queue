@@ -72,11 +72,8 @@
         return remaining;
       },
       drain: function () {
-	console.log("drain");
-	console.log("remaining = ", remaining, "tasks.length=", tasks.length);
-        tasks.splice(tasks.length - remaining, remaining);
-	remaining = 0;//remaining - tasks.length;
-	console.log("remaining = ", remaining, "tasks.length=", tasks.length);
+	tasks = [];
+	remaining = 0;
       }
     };
   }

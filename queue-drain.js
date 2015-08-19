@@ -20,6 +20,10 @@ setTimeout(function () {
 
 function add_tasks () {
     for (var i = 0; i < 1000; i++) {
-	q.defer(function (cb) { console.log(j); j++; setTimeout(cb, 1000); });
+	q.defer(function (cb) {
+	    console.log(j); j++;
+	    setTimeout(cb, 1000);
+	    return 'foo';
+	});
     }
 }
