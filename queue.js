@@ -72,7 +72,8 @@
         return remaining;
       },
       drain: function () {
-	tasks = [];
+	// nb. this has to leave anything in-flight to complete
+	tasks     = [];
 	remaining = 0;
       }
     };
